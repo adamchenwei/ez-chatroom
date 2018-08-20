@@ -111,6 +111,9 @@ class App extends Component {
       content: message,
       time: Date.now(),
     });
+    this.setState({
+      input: '',
+    })
   }
 
   handleOk(e) {

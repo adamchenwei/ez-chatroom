@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Timeline, Modal, } from 'antd';
+import { Timeline, Modal, Button } from 'antd';
 import firebase from 'firebase';
 import get from 'lodash/get';
 import './App.css';
@@ -26,13 +26,14 @@ class App extends Component {
     this.onChangeUserInput = this.onChangeUserInput.bind(this);
     this.handleOk = this.handleOk.bind(this);
     this.regenerateMessagesList = this.regenerateMessagesList.bind(this);
-
+    this.startWatchSession = this.startWatchSession.bind(this);
     this.state = {
       firebaseApp,
       chatSessionId: '',
       username: '',
       messages: [],
       input: '',
+      sessionMesssagesWatcherStarted: false,
     };
   }
   askForName() {
@@ -65,10 +66,6 @@ class App extends Component {
     }
   }
   componentDidMount() {
-    // const key = this.state.firebaseApp.database().ref().child('chats').push().key;
-    // this.state.firebaseApp.database().ref().child(`chats/${key}`).set({
-    //   "aaaaaa": 'hahahaha',
-    // });
     this.askForName();
 
     let sessionKey = get(this.props, 'match.params.chatSessionId', '');
@@ -76,14 +73,22 @@ class App extends Component {
       this.initNewKey();
     } else {
       this.state.firebaseApp.database().ref(`${DB}/${sessionKey}`).once('value').then((snapshot) => {
-        console.log('found');
-        console.log(snapshot.val());
         const dict = snapshot.val();
         this.regenerateMessagesList(dict, sessionKey);
+        this.startWatchSession(sessionKey);
       })
     }
+
+  }
+
+  startWatchSession(sessionKey, isNewSession = false) {
+    if (isNewSession) this.onSendMesage(`${this.state.username} joined conversation`);
+
     this.state.firebaseApp.database().ref(`${DB}/${sessionKey}`).on('value', (snapshot) => {
       this.regenerateMessagesList(snapshot.val(), this.state.chatSessionId);
+    });
+    this.setState({
+      sessionMesssagesWatcherStarted: true,
     })
   }
   onChangeUserInput(event) {
@@ -100,30 +105,19 @@ class App extends Component {
   onSendMesage(message) {
     const {chatSessionId, username,} = this.state;
     const chatKey = this.state.firebaseApp.database().ref().child(`${DB}/${chatSessionId}/`).push().key;
-    console.log(message);
-    console.log(chatSessionId);
-    console.log(chatKey);
     this.state.firebaseApp.database().ref().child(`${DB}/${chatSessionId}/${chatKey}`).set({
       id: chatKey,
       username,
       content: message,
       time: Date.now(),
     });
-
-    // this.setState((prevState) => {
-    //   prevState.messages.push({
-    //     username,
-    //     content: message,
-    //   });
-    //   return prevState;
-    // })
   }
 
   handleOk(e) {
-    console.log(e);
     this.setState({
       showNameInputModal: false,
     });
+    this.startWatchSession(this.state.chatSessionId, true);
   }
 
   render() {
@@ -131,7 +125,12 @@ class App extends Component {
       <ChatAppContainer>
         <Modal title="Your Name"
           visible={this.state.showNameInputModal}
-          onOk={this.handleOk}
+          closable={false}
+          footer={[
+            <Button key="submit" type="primary" onClick={this.handleOk}>
+              Submit
+            </Button>,
+          ]}
         >
           <input
             placeholder="i.e. David"
@@ -142,9 +141,9 @@ class App extends Component {
         </Modal>
         <ChatHistoryContainer>
           <Timeline>
-            {this.state.messages.map((message) => (
+            {this.state.messages ? this.state.messages.map((message) => (
               <Timeline.Item key={message.id}><b>{message.username}</b>: {message.content}</Timeline.Item>
-            ))}
+            )) : null}
           </Timeline>
         </ChatHistoryContainer>
 

@@ -1,4 +1,7 @@
 # development
+
+[![Greenkeeper badge](https://badges.greenkeeper.io/adamchenwei/ez-chatroom.svg)](https://greenkeeper.io/)
+
 yarn install
 yarn start
 
